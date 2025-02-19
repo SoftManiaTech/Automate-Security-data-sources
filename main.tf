@@ -140,29 +140,53 @@ resource "aws_instance" "openvpn" {
 
   associate_public_ip_address = true
 
-  user_data = <<-EOF
+ user_data = <<-EOF
     #! /bin/bash
-    apt-get update
+    apt-get update -y
+
+    # Download and setup OpenVPN
     curl -O https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh
     chmod +x openvpn-install.sh
-    APPROVE_INSTALL=y ENDPOINT=$(curl -4 ifconfig.co) APPROVE_IP=y IPV6_SUPPORT=n PORT_CHOICE=1 PROTOCOL_CHOICE=1 DNS=1 COMPRESSION_ENABLED=n  CUSTOMIZE_ENC=n CLIENT=david PASS=1 ./openvpn-install.sh
-  EOF
+
+    # Set environment variables for automatic installation
+    export APPROVE_INSTALL=y
+    export ENDPOINT=$(curl -4 ifconfig.co)
+    export APPROVE_IP=y
+    export IPV6_SUPPORT=n
+    export PORT_CHOICE=1
+    export PROTOCOL_CHOICE=1
+    export DNS=1
+    export COMPRESSION_ENABLED=n
+    export CUSTOMIZE_ENC=n
+    export CLIENT=david
+    export PASS=1   # Enables password protection, but needs a manual password set
+
+    # Run OpenVPN installation
+    ./openvpn-install.sh
+
+    # Auto-setup OpenVPN Admin Password (For OpenVPN Access Server)
+    if [ -f /usr/local/openvpn_as/scripts/sacli ]; then
+      /usr/local/openvpn_as/scripts/sacli --user=admin --new_pass=AdminSecurePass@123 SetLocalPassword
+      systemctl restart openvpnas
+    fi
+
+    # Auto-setup Client Password (For OpenVPN Client Key)
+    CLIENT_NAME="client123@"
+    CLIENT_PASSWORD="MySecurePass@1213"
+    echo "$$CLIENT_PASSWORD" | openssl rsa -aes256 -in /etc/openvpn/easy-rsa/pki/private/$$CLIENT_NAME.key -out /etc/openvpn/easy-rsa/pki/private/$$CLIENT_NAME-encrypted.key -passout stdin
+
+    # Replace the unencrypted key in the client configuration
+    sed -i "s|$$CLIENT_NAME.key|$$CLIENT_NAME-encrypted.key|" /etc/openvpn/client-configs/files/$$CLIENT_NAME.ovpn
+
+    # Ensure OpenVPN is running on boot
+    systemctl enable openvpn
+    systemctl restart openvpn
+EOF
+
+
   
   depends_on = [aws_security_group.Terraform-openvpn-sg]
 
-  provisioner "remote-exec" {
-    inline = [
-      "sleep 20",
-      "sudo cat /root/openvpn_password.txt"
-    ]
-
-    connection {
-      type        = "ssh"
-      user        = "openvpnas"
-      private_key = file("${var.key_name}.pem")
-      host        = self.public_ip
-    }
-  }
 }
 
 resource "aws_eip" "openvpn_eip" {
