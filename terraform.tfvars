@@ -1,6 +1,6 @@
-region             = "us-east-1"
+region             = "ap-southeast-1"
 FORTIGATE_FIREWALL = true
 F5_BIG_IP          = true
-OPEN_VPN           = false
+OPEN_VPN           = true
 AD_DNS             = true
-key_name           = "security_terraform"
+key_name           = "terraform-Singapore"
