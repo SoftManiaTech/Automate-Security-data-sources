@@ -128,6 +128,7 @@ resource "aws_security_group" "Terraform-f5_bigip-sg" {
   }
 }
 
+
 resource "aws_instance" "openvpn" {
   count         = var.OPEN_VPN ? 1 : 0
   ami           = lookup(var.ami_map[var.region], "openvpn", "")
@@ -139,24 +140,28 @@ resource "aws_instance" "openvpn" {
 
   associate_public_ip_address = true
 
-   provisioner "remote-exec" {
+  user_data = <<-EOF
+    #! /bin/bash
+    apt-get update
+    curl -O https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh
+    chmod +x openvpn-install.sh
+    APPROVE_INSTALL=y ENDPOINT=$(curl -4 ifconfig.co) APPROVE_IP=y IPV6_SUPPORT=n PORT_CHOICE=1 PROTOCOL_CHOICE=1 DNS=1 COMPRESSION_ENABLED=n  CUSTOMIZE_ENC=n CLIENT=david PASS=1 ./openvpn-install.sh
+  EOF
+  
+  depends_on = [aws_security_group.Terraform-openvpn-sg]
+
+  provisioner "remote-exec" {
+    inline = [
+      "sleep 20",
+      "sudo cat /root/openvpn_password.txt"
+    ]
+
     connection {
       type        = "ssh"
       user        = "openvpnas"
       private_key = file("${var.key_name}.pem")
       host        = self.public_ip
     }
-
-    inline = [
-      "sleep 150",  # Allow time for instance to initialize
-      
-      # Accept license agreement and run OpenVPN installation
-      "yes | /usr/local/openvpn_as/bin/ovpn-installer -f",  # Automatically accept terms and finish installation
-      
-      # Display OpenVPN Admin and Client UI URLs and login credentials
-      "echo 'You can now access the OpenVPN Admin UI at: https://$(hostname -I):943/admin'",
-      "echo 'You can now access the OpenVPN Client UI at: https://$(hostname -I):943/'",
-    ]
   }
 }
 
