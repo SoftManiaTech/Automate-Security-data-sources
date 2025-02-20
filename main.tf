@@ -13,6 +13,36 @@ resource "aws_instance" "Fortigate-Firewall" {
   tags = { Name = "FortiGate Firewall" }
 
   associate_public_ip_address = true
+
+  provisioner "remote-exec" {
+  connection {
+    type        = "ssh"
+    user        = "admin"
+    private_key = file("${var.key_name}.pem")
+    host        = self.public_ip
+  }
+
+  inline = [<<EOT
+    expect -c '
+      spawn ssh -o StrictHostKeyChecking=no admin@${self.public_ip}
+      expect "#"
+      send "config system admin\r"
+      expect "#"
+      send "edit admin\r"
+      expect "#"
+      send "set password SoftMania123\r"
+      expect "#"
+      send "next\r"
+      expect "#"
+      send "end\r"
+      expect "#"
+      send "exit\r"
+      interact
+    '
+  EOT
+  ]
+}
+
 }
 
 resource "aws_eip" "FortiGate-Firewall_eip" {
@@ -82,6 +112,20 @@ resource "aws_instance" "f5_bigip" {
 
   associate_public_ip_address = true
 
+   user_data = <<-EOF
+      #!/bin/bash
+      # Wait for the system to be ready
+      sleep 60
+
+      # Run tmsh command to change the password
+      tmsh modify auth user admin password SoftMania123
+
+      # Save the configuration
+      tmsh save sys config
+      EOF
+
+    depends_on = [aws_security_group.Terraform-f5_bigip-sg]
+
 }
 
 resource "aws_eip" "f5_bigip_eip" {
@@ -139,22 +183,6 @@ resource "aws_instance" "openvpn" {
   tags = { Name = "OpenVPN" }
 
   associate_public_ip_address = true
-
-provisioner "remote-exec" {
-  connection {
-    type        = "ssh"
-    user        = "openvpnas" # Change to your AMI’s default user
-    private_key = file("${var.key_name}.pem")
-    host        = self.public_ip
-  }
-
-  inline = [
-    "echo -e 'yes\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\nAdminSecurePass@123\\nAdminSecurePass@123\\n' | sudo /usr/local/openvpn_as/bin/ovpn-init",
-    "sudo systemctl restart openvpnas"
-  ]
-}
-  
-  depends_on = [aws_security_group.Terraform-openvpn-sg]
 
 }
 
