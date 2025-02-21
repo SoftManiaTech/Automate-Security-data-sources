@@ -1,16 +1,14 @@
-- name: Reset FortiGate Admin Password
-  hosts: fortigate
-  gather_facts: no
+- name: Automate OpenVPN Backend Setup
+  hosts: openvpn
+  become: yes
+  vars:
+    admin_password: "AdminSoftMania@123"
   tasks:
-    - name: Reset admin password using CLI
-      ansible.builtin.shell: |
-        config system admin
-        edit admin
-        set password SoftMania123
-        next
-        end
-      register: result
+    - name: Copy script to remote server
+      copy:
+        src: openvpn_setup.sh
+        dest: /tmp/openvpn_setup.sh
+        mode: '0755'
 
-    - name: Show command output
-      debug:
-        msg: "{{ result.stdout }}"
+    - name: Execute OpenVPN setup script
+      command: /tmp/openvpn_setup.sh

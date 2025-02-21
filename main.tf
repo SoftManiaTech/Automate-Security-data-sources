@@ -14,25 +14,6 @@ resource "aws_instance" "Fortigate-Firewall" {
 
   associate_public_ip_address = true
 
-  provisioner "remote-exec" {
-    connection {
-      type = "ssh"
-      user = "admin"
-      private_key = file("${var.key_name}.pem")
-      host = self.public_ip
-    }
-
-    inline = [
-      "echo 'Executing FortiGate SSH Key Setup...'",
-      "echo 'config system admin' > forti_config.txt",
-      "echo 'edit admin' >> forti_config.txt",
-      "echo 'set ssh-public-key1 \"$(cat ${var.ssh_public_key})\"' >> forti_config.txt",
-      "echo 'next' >> forti_config.txt",
-      "echo 'end' >> forti_config.txt",
-      "cat forti_config.txt | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/your-key.pem admin@${self.public_ip}"
-    ]
-  }
-
 }
 
 resource "aws_eip" "FortiGate-Firewall_eip" {
@@ -251,11 +232,12 @@ resource "aws_instance" "ad_dns" {
 
   associate_public_ip_address = true
 
-   user_data = <<EOF
+    user_data = <<EOF
       <powershell>
-      # Set Administrator password
-      $adminPassword = ConvertTo-SecureString "YourSecurePassword123!" -AsPlainText -Force
-      Set-LocalUser -Name "Administrator" -Password $adminPassword
+      # Enable WinRM for remote execution
+      winrm quickconfig -q
+      winrm set winrm/config/service @{AllowUnencrypted="true"}
+      winrm set winrm/config/service/auth @{Basic="true"}
       </powershell>
       EOF
 }
@@ -292,4 +274,16 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   }
 }
 
+resource "null_resource" "get_windows_password" {
+  provisioner "local-exec" {
+    command = <<EOT
+      powershell -ExecutionPolicy Bypass -NoProfile -Command "& {
+        Start-Sleep -Seconds 60;
+        aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-key-file '${var.key_name}.pem' --region ${var.region} --query PasswordData --output text | Out-File -Encoding ascii windows_password.txt
+      }"
+    EOT
+    interpreter = ["PowerShell", "-Command"]
+  }
 
+  depends_on = [aws_instance.ad_dns]
+}

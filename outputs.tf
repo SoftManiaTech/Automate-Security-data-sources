@@ -2,10 +2,10 @@ output "fortigate_firewall" {
   value = {
     for idx, instance in aws_instance.Fortigate-Firewall :
     instance.tags["Name"] => {
-      "Public IP"   = try(aws_eip.FortiGate-Firewall_eip[idx].public_ip, instance.public_ip)
+      "Public IP"   = "https://${try(aws_eip.FortiGate-Firewall_eip[idx].public_ip, instance.public_ip)}/login"
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
-      "SSH client"  = "ssh -i ${var.key_name}.pem ec2-user@${try(aws_eip.FortiGate-Firewall_eip[idx].public_ip, instance.public_ip)}"
+      "SSH client"  = "ssh -i ${var.key_name}.pem admin@${try(aws_eip.FortiGate-Firewall_eip[idx].public_ip, instance.public_ip)}"
     }
   }
 }
@@ -14,7 +14,7 @@ output "f5_bigip" {
   value = {
     for idx, instance in aws_instance.f5_bigip :
     instance.tags["Name"] => {
-      "Public IP"   = try(aws_eip.f5_bigip_eip[idx].public_ip, instance.public_ip)
+      "Public IP"   = "https://${try(aws_eip.f5_bigip_eip[idx].public_ip, instance.public_ip)}:8443"
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
       "SSH client"  = "ssh -i ${var.key_name}.pem admin@${try(aws_eip.f5_bigip_eip[idx].public_ip, instance.public_ip)}"
@@ -26,12 +26,13 @@ output "openvpn" {
   value = {
     for idx, instance in aws_instance.openvpn :
     instance.tags["Name"] => {
-      "Public IP"   = try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)
-      "Private IP"  = instance.private_ip
-      "Instance ID" = instance.id
-      "Admin Panel" = "https://${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}:943/admin"
-      "Client UI"   = "https://${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}:943/"
-      "SSH client"  = "ssh -i ${var.key_name}.pem openvpnas@${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}"
+      "Public IP"      = try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)
+      "Private IP"     = instance.private_ip
+      "Instance ID"    = instance.id
+      "Admin Panel"    = "https://${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}:943/admin"
+      "Client UI"      = "https://${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}:943/"
+      "SSH client"     = "ssh -i ${var.key_name}.pem openvpnas@${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}"
+      "wsl SSH client" = "ssh openvpnas@${try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)}"
     }
   }
 }
@@ -44,6 +45,17 @@ output "ad_dns" {
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
       "RDP client"  = "mstsc /v:${try(aws_eip.ad_dns_eip[idx].public_ip, instance.public_ip)}"
+       "Admin Password Command" = "aws ec2 get-password-data --instance-id ${instance.id} --priv-key-file ${var.key_name}.pem --region ${var.region} --query PasswordData --output text"
     }
   }
+}
+
+
+output "ad_dns_credentials" {
+  value = <<EOT
+Instance ID: ${aws_instance.ad_dns[0].id}
+Public IP: ${aws_instance.ad_dns[0].public_ip}
+Admin Password Command:
+aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-key-file ${var.key_name} --region ${var.region}
+EOT
 }
