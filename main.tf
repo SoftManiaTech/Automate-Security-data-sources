@@ -15,33 +15,23 @@ resource "aws_instance" "Fortigate-Firewall" {
   associate_public_ip_address = true
 
   provisioner "remote-exec" {
-  connection {
-    type        = "ssh"
-    user        = "admin"
-    private_key = file("${var.key_name}.pem")
-    host        = self.public_ip
-  }
+    connection {
+      type = "ssh"
+      user = "admin"
+      private_key = file("${var.key_name}.pem")
+      host = self.public_ip
+    }
 
-  inline = [<<EOT
-    expect -c '
-      spawn ssh -o StrictHostKeyChecking=no admin@${self.public_ip}
-      expect "#"
-      send "config system admin\r"
-      expect "#"
-      send "edit admin\r"
-      expect "#"
-      send "set password SoftMania123\r"
-      expect "#"
-      send "next\r"
-      expect "#"
-      send "end\r"
-      expect "#"
-      send "exit\r"
-      interact
-    '
-  EOT
-  ]
-}
+    inline = [
+      "echo 'Executing FortiGate SSH Key Setup...'",
+      "echo 'config system admin' > forti_config.txt",
+      "echo 'edit admin' >> forti_config.txt",
+      "echo 'set ssh-public-key1 \"$(cat ${var.ssh_public_key})\"' >> forti_config.txt",
+      "echo 'next' >> forti_config.txt",
+      "echo 'end' >> forti_config.txt",
+      "cat forti_config.txt | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/your-key.pem admin@${self.public_ip}"
+    ]
+  }
 
 }
 
@@ -184,6 +174,20 @@ resource "aws_instance" "openvpn" {
 
   associate_public_ip_address = true
 
+ provisioner "remote-exec" {
+    connection {
+      type = "ssh"
+      user = "openvpnas"
+      private_key = file("${var.key_name}.pem")
+      host = self.public_ip
+    }
+
+    inline = [
+       "echo '${var.ssh_public_key}' >> ~/.ssh/authorized_keys"
+    ]
+  }
+
+
 }
 
 resource "aws_eip" "openvpn_eip" {
@@ -246,6 +250,14 @@ resource "aws_instance" "ad_dns" {
   tags = { Name = "AD & DNS" }
 
   associate_public_ip_address = true
+
+   user_data = <<EOF
+      <powershell>
+      # Set Administrator password
+      $adminPassword = ConvertTo-SecureString "YourSecurePassword123!" -AsPlainText -Force
+      Set-LocalUser -Name "Administrator" -Password $adminPassword
+      </powershell>
+      EOF
 }
 
 resource "aws_eip" "ad_dns_eip" {

@@ -13,6 +13,11 @@ variable "F5_BIG_IP" { default = true }
 variable "OPEN_VPN" { default = true }
 variable "AD_DNS" { default = true }
 
+variable "ssh_public_key" {
+  description = "SSH public key for authentication"
+  type        = string
+}
+
 variable "ami_map" {
   type = map(object({
     fortigate = string

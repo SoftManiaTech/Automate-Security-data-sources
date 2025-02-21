@@ -1,0 +1,16 @@
+- name: Reset FortiGate Admin Password
+  hosts: fortigate
+  gather_facts: no
+  tasks:
+    - name: Reset admin password using CLI
+      ansible.builtin.shell: |
+        config system admin
+        edit admin
+        set password SoftMania123
+        next
+        end
+      register: result
+
+    - name: Show command output
+      debug:
+        msg: "{{ result.stdout }}"
