@@ -1,0 +1,27 @@
+- name: Setup Active Directory and DNS Server
+  hosts: windows_server
+  tasks:
+
+    - name: Install AD-Domain-Services and DNS
+      win_feature:
+        name:
+          - AD-Domain-Services
+          - DNS
+        include_management_tools: yes
+        state: present
+      register: ad_installation
+
+    - name: Promote Server to Domain Controller
+      win_command: >
+        Install-ADDSForest
+        -DomainName "example.com"
+        -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssword123" -AsPlainText -Force)
+        -InstallDns
+        -Force
+      args:
+        executable: powershell.exe
+      when: ad_installation.reboot_required
+
+    - name: Reboot after AD setup
+      win_reboot:
+      when: ad_installation.reboot_required

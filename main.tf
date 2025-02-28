@@ -231,6 +231,18 @@ resource "aws_instance" "ad_dns" {
   tags = { Name = "AD & DNS" }
 
   associate_public_ip_address = true
+
+  # Automatically enable WinRM using PowerShell
+  user_data = <<EOF
+    <powershell>
+    # Enable WinRM
+    winrm quickconfig -q
+    winrm set winrm/config/service '@{AllowUnencrypted="true"}'
+    winrm set winrm/config/service/auth '@{Basic="true"}'
+    winrm set winrm/config/listener?Address=*+Transport=HTTP '@{Port="5985"}'
+    netsh advfirewall firewall add rule name="WinRM HTTP" dir=in action=allow protocol=TCP localport=5985
+    </powershell>
+    EOF
 }
 
 resource "aws_eip" "ad_dns_eip" {
@@ -257,10 +269,31 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  # Allow WinRM HTTP (port 5985) - Not Secure but works for testing
+  ingress {
+    from_port   = 5985
+    to_port     = 5985
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow WinRM HTTPS (port 5986) - Recommended for security
+  ingress {
+    from_port   = 5986
+    to_port     = 5986
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   ingress {
     from_port   = 3389
     to_port     = 3389
     protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -282,20 +315,3 @@ resource "null_resource" "get_windows_password" {
 }
 
 
-resource "null_resource" "create_ansible_inventory" {
-  depends_on = [null_resource.get_windows_password]
-
-  provisioner "local-exec" {
-    command = <<EOT
-    echo "[all]" > inventory.ini
-    echo "  hosts:" >> inventory.ini
-    echo "    windows_server:" >> inventory.ini
-    echo "      ansible_host: ${aws_instance.ad_dns[0].public_ip}" >> inventory.ini
-    echo "      ansible_user: Administrator" >> inventory.ini
-    echo "      ansible_password: $(type windows-password.ini | jq -r .PasswordData)" >> inventory.ini
-    echo "      ansible_connection: winrm" >> inventory.ini
-    echo "      ansible_winrm_transport: basic" >> inventory.ini
-    echo "      ansible_winrm_server_cert_validation: ignore" >> inventory.ini
-    EOT
-  }
-}

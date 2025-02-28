@@ -1,0 +1,7 @@
+- name: Create a test file on Windows
+  hosts: windows
+  tasks:
+    - name: Create a file in C:\ drive
+      win_file:
+        path: C:\testing.txt
+        state: touch

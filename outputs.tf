@@ -45,13 +45,8 @@ output "ad_dns" {
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
       "RDP client"  = "mstsc /v:${try(aws_eip.ad_dns_eip[idx].public_ip, instance.public_ip)}"
-      "RDP username" = "administrator"
+      "RDP username" = "Administrator"
       "RDP password - run this commed to get" = "aws ec2 get-password-data --instance-id ${instance.id} --priv-launch-key ${var.key_name}.pem --region ${var.region}"
     }
   }
-}
-
-output "get_password_command" {
-  value = "aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-launch-key ${var.key_name}.pem --region ${var.region}"
-  description = "Run this command to retrieve the Windows administrator password"
 }
