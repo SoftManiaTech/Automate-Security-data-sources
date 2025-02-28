@@ -231,15 +231,6 @@ resource "aws_instance" "ad_dns" {
   tags = { Name = "AD & DNS" }
 
   associate_public_ip_address = true
-
-    user_data = <<EOF
-      <powershell>
-      # Enable WinRM for remote execution
-      winrm quickconfig -q
-      winrm set winrm/config/service @{AllowUnencrypted="true"}
-      winrm set winrm/config/service/auth @{Basic="true"}
-      </powershell>
-      EOF
 }
 
 resource "aws_eip" "ad_dns_eip" {
@@ -274,16 +265,37 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   }
 }
 
+resource "time_sleep" "wait_200_sec" {
+  depends_on = [ aws_instance.ad_dns]
+
+  create_duration = "200s"
+}
+
 resource "null_resource" "get_windows_password" {
+  depends_on = [time_sleep.wait_200_sec]
+
   provisioner "local-exec" {
     command = <<EOT
-      powershell -ExecutionPolicy Bypass -NoProfile -Command "& {
-        Start-Sleep -Seconds 60;
-        aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-key-file '${var.key_name}.pem' --region ${var.region} --query PasswordData --output text | Out-File -Encoding ascii windows_password.txt
-      }"
+    aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-launch-key ${var.key_name}.pem --region ap-southeast-1 > windows-password.ini
     EOT
-    interpreter = ["PowerShell", "-Command"]
   }
+}
 
-  depends_on = [aws_instance.ad_dns]
+
+resource "null_resource" "create_ansible_inventory" {
+  depends_on = [null_resource.get_windows_password]
+
+  provisioner "local-exec" {
+    command = <<EOT
+    echo "[all]" > inventory.ini
+    echo "  hosts:" >> inventory.ini
+    echo "    windows_server:" >> inventory.ini
+    echo "      ansible_host: ${aws_instance.ad_dns[0].public_ip}" >> inventory.ini
+    echo "      ansible_user: Administrator" >> inventory.ini
+    echo "      ansible_password: $(type windows-password.ini | jq -r .PasswordData)" >> inventory.ini
+    echo "      ansible_connection: winrm" >> inventory.ini
+    echo "      ansible_winrm_transport: basic" >> inventory.ini
+    echo "      ansible_winrm_server_cert_validation: ignore" >> inventory.ini
+    EOT
+  }
 }
