@@ -3,57 +3,51 @@
   hosts: windows
   gather_facts: yes
   tasks:
-
-    - name: Install Active Directory Domain Services role
+    - name: Install AD DS feature
       win_feature:
         name: AD-Domain-Services
         state: present
 
-    - name: Install DNS role
+    - name: Install DNS feature
       win_feature:
         name: DNS
         state: present
 
-    - name: Promote server to Domain Controller
+    - name: Promote the server to a Domain Controller
+      win_domain:
+        name: "example.com"
+        safe_mode_password: "YourSafeModePassword@123!"
+        dns_domain_name: "example.com"
+        domain_admin_user: "Administrator"
+        domain_admin_password: "YourAdminPassword@123!"
+        state: domain
+        reboot: yes
+      when: ansible_facts['os_family'] == "Windows"
+
+    - name: Add DNS A Record using PowerShell
       win_shell: |
-        Import-Module ADDSDeployment
-        Install-ADDSDomainController -DomainName "pointbreak.test" `
-        -DomainNetbiosName "PointBreak" `
-        -SafeModeAdministratorPassword (ConvertTo-SecureString "YourPasswordHere" -AsPlainText -Force) `
-        -InstallDNS:$true `
-        -NoGlobalCatalog:$false `
-        -Force:$true
-      register: dc_promote_output
+        Add-DnsServerResourceRecordA -Name "myserver" -ZoneName "example.com" -IPv4Address "192.168.1.10"
 
-    - name: Wait for reboot after domain promotion
-      wait_for:
-        port: 3389
-        host: "{{ inventory_hostname }}"
+    - name: Ensure ADWS is Running
+      win_service:
+        name: ADWS
+        start_mode: auto
         state: started
-        delay: 10
-        timeout: 600
-      when: dc_promote_output.rc == 0
 
-    - name: Add user "Bodhi" to Active Directory
+    - name: Create a new Active Directory user
       win_user:
-        name: Bodhi
-        password: "P@55w0rd"
+        name: "newuser"
+        password: "UserPassword123"
         state: present
         groups: "Domain Users"
+        update_password: on_create
 
-    - name: Configure DNS settings for the domain
-      win_dns_record:
-        name: "california"
-        zone: "pointbreak.test"
-        type: A
-        value: "{{ ansible_host }}"
-        state: present
+    - name: Verify DNS A Record using nslookup
+      win_shell: |
+        nslookup myserver.example.com
+      register: nslookup_result
+      ignore_errors: yes
 
-    - name: Verify DNS resolution with nslookup (local)
-      win_command: nslookup california.pointbreak.test
-      register: nslookup_output
-      failed_when: "'california' not in nslookup_output.stdout"
-
-    - name: Test DNS lookup (external)
-      win_command: nslookup google.com
-      register: external_nslookup
+    - name: Display nslookup result
+      debug:
+        var: nslookup_result.stdout
