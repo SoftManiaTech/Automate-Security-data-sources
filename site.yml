@@ -1,27 +1,62 @@
-- name: Setup Active Directory and DNS Server
-  hosts: windows_server
+- name: Complete Active Directory & DNS Server Setup
+  hosts: windows
   tasks:
-
-    - name: Install AD-Domain-Services and DNS
+    
+    # Install AD DS and DNS Server roles
+    - name: Install AD DS and DNS Server
       win_feature:
         name:
           - AD-Domain-Services
           - DNS
-        include_management_tools: yes
         state: present
-      register: ad_installation
+        include_management_tools: yes
+      register: ad_dns_install
 
-    - name: Promote Server to Domain Controller
-      win_command: >
-        Install-ADDSForest
-        -DomainName "example.com"
-        -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssword123" -AsPlainText -Force)
-        -InstallDns
-        -Force
+    # Promote the server to a Domain Controller
+    - name: Promote to Domain Controller
+      win_domain:
+        dns_domain_name: "example.local"
+        domain_netbios_name: "EXAMPLE"
+        safe_mode_password: "YourSafeModePassword123!"
+        state: domain_controller
+      when: ad_dns_install is succeeded
+      register: domain_controller_promoted
+
+    # Ensure Active Directory Web Services (ADWS) are running
+    - name: Ensure ADWS is Running
+      win_service:
+        name: ADWS
+        start_mode: auto
+        state: started
+      when: domain_controller_promoted is succeeded
+
+    # Configure DNS Forward Lookup Zone
+    - name: Configure DNS Forward Lookup Zone
+      win_shell: |
+        $zoneName = "example.local"
+        $zoneExists = Get-DnsServerZone -Name $zoneName -ErrorAction SilentlyContinue
+        if (-not $zoneExists) {
+            Add-DnsServerPrimaryZone -Name $zoneName -ZoneFile "$zoneName.dns"
+        } else {
+            Write-Host "DNS Zone '$zoneName' already exists."
+        }
       args:
         executable: powershell.exe
-      when: ad_installation.reboot_required
 
-    - name: Reboot after AD setup
-      win_reboot:
-      when: ad_installation.reboot_required
+
+    # Add DNS Records for the Domain Controller
+    - name: Add DNS Records
+      win_shell: |
+        Add-DnsServerResourceRecordA -Name "server" -ZoneName "example.local" -IPv4Address "192.168.1.10"
+      args:
+        executable: powershell.exe
+      when: domain_controller_promoted is succeeded
+
+    # Create Group Policy Objects (GPO) for security and password policies
+    - name: Configure Group Policy Object (GPO)
+      win_shell: |
+        New-GPO -Name "Security Policy"
+        New-GPO -Name "Password Policy"
+      args:
+        executable: powershell.exe
+      when: domain_controller_promoted is succeeded
