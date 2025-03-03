@@ -224,11 +224,15 @@ resource "aws_security_group" "Terraform-openvpn-sg" {
 resource "aws_instance" "ad_dns" {
   count         = var.AD_DNS ? 1 : 0
   ami           = lookup(var.ami_map[var.region], "ad_dns", "")
-  instance_type = "m3.large"
+  instance_type = "t2.large"
   key_name      = var.key_name
   security_groups = length(aws_security_group.Terraform-ad_dns-sg) > 0 ? [aws_security_group.Terraform-ad_dns-sg[0].name] : []
 
   tags = { Name = "AD & DNS" }
+
+  root_block_device {
+    volume_size = 50
+  }
 
   associate_public_ip_address = true
 
@@ -309,7 +313,7 @@ resource "null_resource" "get_windows_password" {
 
   provisioner "local-exec" {
     command = <<EOT
-    aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-launch-key ${var.key_name}.pem --region ap-southeast-1 > windows-password.ini
+    aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-launch-key ${var.key_name}.pem --region ${var.region} > windows-password.ini
     EOT
   }
 }

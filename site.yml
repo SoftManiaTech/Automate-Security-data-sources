@@ -33,21 +33,3 @@
         name: ADWS
         start_mode: auto
         state: started
-
-    - name: Create a new Active Directory user
-      win_user:
-        name: "newuser"
-        password: "UserPassword123"
-        state: present
-        groups: "Domain Users"
-        update_password: on_create
-
-    - name: Verify DNS A Record using nslookup
-      win_shell: |
-        nslookup myserver.example.com
-      register: nslookup_result
-      ignore_errors: yes
-
-    - name: Display nslookup result
-      debug:
-        var: nslookup_result.stdout
