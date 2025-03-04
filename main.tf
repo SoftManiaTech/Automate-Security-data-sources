@@ -8,11 +8,24 @@ resource "aws_instance" "Fortigate-Firewall" {
   ami           = lookup(var.ami_map[var.region], "fortigate", "")
   instance_type = "c6i.large"
   key_name      = var.key_name
-  security_groups = length(aws_security_group.Terraform-Fortigate-Firewall-sg) > 0 ? [aws_security_group.Terraform-Fortigate-Firewall-sg[0].name] : []
-
+security_groups = length(aws_security_group.Terraform-Fortigate-Firewall-sg) > 0 ? [aws_security_group.Terraform-Fortigate-Firewall-sg[0].name] : []
   tags = { Name = "FortiGate Firewall" }
 
   associate_public_ip_address = true
+
+  user_data = <<-EOF
+    #!/usr/bin/expect -f
+    spawn ssh admin@localhost
+    expect "Password:"
+    send "SoftMania123\r"
+    expect "#"
+    send "config system admin\r"
+    send "edit admin\r"
+    send "set password SoftMania123\r"
+    send "next\r"
+    send "end\r"
+    send "exit\r"
+    EOF
 
 }
 
@@ -29,7 +42,8 @@ data "aws_security_groups" "existing_fortigate_firewall_sg" {
 }
 
 resource "aws_security_group" "Terraform-Fortigate-Firewall-sg" {
-    count = length(data.aws_security_groups.existing_fortigate_firewall_sg.ids) > 0 ? 0 : 1
+  count = try(length(data.aws_security_groups.existing_fortigate_firewall_sg.ids), 0) > 0 ? 0 : 1
+
 
   name        = "Terraform-fortigate-firewall-sg"
   description = "Security group for FortiGate Firewall"
@@ -79,6 +93,7 @@ resource "aws_instance" "f5_bigip" {
   key_name      = var.key_name
   security_groups = length(aws_security_group.Terraform-f5_bigip-sg) > 0 ? [aws_security_group.Terraform-f5_bigip-sg[0].name] : []
 
+
   tags = { Name = "F5 BIG-IP" }
 
   associate_public_ip_address = true
@@ -86,7 +101,7 @@ resource "aws_instance" "f5_bigip" {
    user_data = <<-EOF
       #!/bin/bash
       # Wait for the system to be ready
-      sleep 60
+      sleep 70
 
       # Run tmsh command to change the password
       tmsh modify auth user admin password SoftMania123
@@ -112,35 +127,47 @@ data "aws_security_groups" "existing_sg_f5" {
 }
 
 resource "aws_security_group" "Terraform-f5_bigip-sg" {
-    count = length(data.aws_security_groups.existing_sg_f5.ids) > 0 ? 0 : 1
+  count = try(length(data.aws_security_groups.existing_sg_f5.ids), 0) > 0 ? 0 : 1
+
 
   name        = "Terraform-f5-bigip-sg"
   description = "Security group for F5 BIG-IP"
 
-  ingress {
+ ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   ingress {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   ingress {
     from_port   = 8443
     to_port     = 8443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
 }
 
 
@@ -150,6 +177,7 @@ resource "aws_instance" "openvpn" {
   instance_type = "t2.small"
   key_name      = var.key_name
   security_groups = length(aws_security_group.Terraform-openvpn-sg) > 0 ? [aws_security_group.Terraform-openvpn-sg[0].name] : []
+
 
   tags = { Name = "OpenVPN" }
 
@@ -184,7 +212,8 @@ data "aws_security_groups" "existing_openvpn-sg" {
 }
 
 resource "aws_security_group" "Terraform-openvpn-sg" {
-    count = length(data.aws_security_groups.existing_openvpn-sg.ids) > 0 ? 0 : 1
+  count = try(length(data.aws_security_groups.existing_openvpn-sg.ids), 0) > 0 ? 0 : 1
+
 
   name        = "Terraform-openvpn-sg"
   description = "Security group for OpenVPN"
@@ -262,7 +291,8 @@ data "aws_security_groups" "existing_ad_dns-sg" {
 }
 
 resource "aws_security_group" "Terraform-ad_dns-sg" {
-    count = length(data.aws_security_groups.existing_ad_dns-sg.ids) > 0 ? 0 : 1
+  count = try(length(data.aws_security_groups.existing_ad_dns-sg.ids), 0) > 0 ? 0 : 1
+
 
   name        = "Terraform-ad-dns-sg"
   description = "Security group for AD & DNS"
@@ -302,14 +332,16 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   }
 }
 
-resource "time_sleep" "wait_200_sec" {
+resource "time_sleep" "wait_220_sec" {
+  count         = var.AD_DNS ? 1 : 0
   depends_on = [ aws_instance.ad_dns]
 
-  create_duration = "200s"
+  create_duration = "220s"
 }
 
 resource "null_resource" "get_windows_password" {
-  depends_on = [time_sleep.wait_200_sec]
+  count = var.AD_DNS ? 1 : 0
+  depends_on = [time_sleep.wait_220_sec]
 
   provisioner "local-exec" {
     command = <<EOT
@@ -318,4 +350,29 @@ resource "null_resource" "get_windows_password" {
   }
 }
 
+resource "time_sleep" "wait_10_seconds" {
+  depends_on = [aws_instance.openvpn, aws_eip.openvpn_eip]
+  create_duration = "10s"
+}
 
+resource "local_file" "ovpn_inventory" {
+  count = var.OPEN_VPN ? 1 : 0
+  depends_on = [time_sleep.wait_10_seconds]
+  filename   = "ovpn.ini"
+
+  content = <<EOF
+[openvpn_servers]
+openvpn_host ansible_host=${aws_eip.openvpn_eip[0].public_ip} ansible_user=openvpnas
+EOF
+}
+
+resource "local_file" "windows_inventory" {
+  count = var.AD_DNS ? 1 : 0
+  depends_on = [null_resource.get_windows_password]
+  filename   = "inventory.ini"
+
+  content = <<EOF
+[windows]
+windows_server ansible_host=${aws_eip.ad_dns_eip[0].public_ip} ansible_user=Administrator ansible_password="${jsondecode(file("windows-password.ini"))["PasswordData"]}" ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
+EOF
+}
