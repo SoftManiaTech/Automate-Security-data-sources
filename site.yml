@@ -1,0 +1,35 @@
+---
+- name: Set up Active Directory and DNS on Windows Server 2016
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Install AD DS feature
+      win_feature:
+        name: AD-Domain-Services
+        state: present
+
+    - name: Install DNS feature
+      win_feature:
+        name: DNS
+        state: present
+
+    - name: Promote the server to a Domain Controller
+      win_domain:
+        name: "example.com"
+        safe_mode_password: "YourSafeModePassword@123!"
+        dns_domain_name: "example.com"
+        domain_admin_user: "Administrator"
+        domain_admin_password: "YourAdminPassword@123!"
+        state: domain
+        reboot: yes
+      when: ansible_facts['os_family'] == "Windows"
+
+    - name: Add DNS A Record using PowerShell
+      win_shell: |
+        Add-DnsServerResourceRecordA -Name "myserver" -ZoneName "example.com" -IPv4Address "192.168.1.10"
+
+    - name: Ensure ADWS is Running
+      win_service:
+        name: ADWS
+        start_mode: auto
+        state: started
