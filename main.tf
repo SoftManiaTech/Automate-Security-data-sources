@@ -42,7 +42,7 @@ data "aws_security_groups" "existing_fortigate_firewall_sg" {
 }
 
 resource "aws_security_group" "Terraform-Fortigate-Firewall-sg" {
-  count = try(length(data.aws_security_groups.existing_fortigate_firewall_sg.ids), 0) > 0 ? 0 : 1
+  count = length(data.aws_security_groups.existing_fortigate_firewall_sg.ids) > 0 ? 0 : 1
 
 
   name        = "Terraform-fortigate-firewall-sg"
@@ -212,7 +212,7 @@ data "aws_security_groups" "existing_openvpn-sg" {
 }
 
 resource "aws_security_group" "Terraform-openvpn-sg" {
-  count = try(length(data.aws_security_groups.existing_openvpn-sg.ids), 0) > 0 ? 0 : 1
+  count = length(data.aws_security_groups.existing_openvpn-sg.ids) > 0 ? 0 : 1
 
 
   name        = "Terraform-openvpn-sg"
@@ -291,7 +291,7 @@ data "aws_security_groups" "existing_ad_dns-sg" {
 }
 
 resource "aws_security_group" "Terraform-ad_dns-sg" {
-  count = try(length(data.aws_security_groups.existing_ad_dns-sg.ids), 0) > 0 ? 0 : 1
+  count = length(data.aws_security_groups.existing_ad_dns-sg.ids) > 0 ? 0 : 1
 
 
   name        = "Terraform-ad-dns-sg"
@@ -332,16 +332,16 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   }
 }
 
-resource "time_sleep" "wait_220_sec" {
+resource "time_sleep" "wait_190_sec" {
   count         = var.AD_DNS ? 1 : 0
   depends_on = [ aws_instance.ad_dns]
 
-  create_duration = "220s"
+  create_duration = "190s"
 }
 
 resource "null_resource" "get_windows_password" {
   count = var.AD_DNS ? 1 : 0
-  depends_on = [time_sleep.wait_220_sec]
+  depends_on = [time_sleep.wait_190_sec]
 
   provisioner "local-exec" {
     command = <<EOT
