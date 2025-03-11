@@ -231,3 +231,14 @@ openvpn_host ansible_host=${aws_eip.openvpn_eip[0].public_ip} ansible_user=openv
 EOF
 }
 
+resource "local_file" "windows_inventory" {
+  count = var.AD_DNS ? 1 : 0
+  depends_on = [aws_instance.ad_dns]
+  filename   = "inventory.ini"
+
+  content = <<EOF
+[windows]
+windows_server ansible_host=${aws_eip.ad_dns_eip[0].public_ip} ansible_user=Administrator ansible_password="${rsadecrypt(aws_instance.ad_dns[0].password_data, file("${var.key_name}.pem"))}" ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
+EOF
+}
+
