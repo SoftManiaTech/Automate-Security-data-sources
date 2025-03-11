@@ -8,24 +8,10 @@ resource "aws_instance" "Fortigate-Firewall" {
   ami           = lookup(var.ami_map[var.region], "fortigate", "")
   instance_type = "c6i.large"
   key_name      = var.key_name
-security_groups = length(aws_security_group.Terraform-Fortigate-Firewall-sg) > 0 ? [aws_security_group.Terraform-Fortigate-Firewall-sg[0].name] : []
+  security_groups = length(aws_security_group.Terraform-Fortigate-Firewall-sg) > 0 ? [aws_security_group.Terraform-Fortigate-Firewall-sg[0].name] : []
   tags = { Name = "FortiGate Firewall" }
 
   associate_public_ip_address = true
-
-  user_data = <<-EOF
-    #!/usr/bin/expect -f
-    spawn ssh admin@localhost
-    expect "Password:"
-    send "SoftMania123\r"
-    expect "#"
-    send "config system admin\r"
-    send "edit admin\r"
-    send "set password SoftMania123\r"
-    send "next\r"
-    send "end\r"
-    send "exit\r"
-    EOF
 
 }
 
@@ -321,6 +307,42 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   ingress {
     from_port   = 3389
     to_port     = 3389
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 636
+    to_port     = 636
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 389
+    to_port     = 389
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 88
+    to_port     = 88
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 464
+    to_port     = 464
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

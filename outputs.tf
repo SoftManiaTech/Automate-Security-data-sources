@@ -1,7 +1,7 @@
 output "fortigate_firewall" {
   value = {
     for idx, instance in aws_instance.Fortigate-Firewall :
-    instance.tags["Name"] => {
+    idx => {
       "Public IP"   = "https://${try(aws_eip.FortiGate-Firewall_eip[idx].public_ip, instance.public_ip)}/login"
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
@@ -13,7 +13,7 @@ output "fortigate_firewall" {
 output "f5_bigip" {
   value = {
     for idx, instance in aws_instance.f5_bigip :
-    instance.tags["Name"] => {
+    idx => {
       "Public IP"   = "https://${try(aws_eip.f5_bigip_eip[idx].public_ip, instance.public_ip)}:8443"
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
@@ -25,7 +25,7 @@ output "f5_bigip" {
 output "openvpn" {
   value = {
     for idx, instance in aws_instance.openvpn :
-    instance.tags["Name"] => {
+    idx => {
       "Public IP"      = try(aws_eip.openvpn_eip[idx].public_ip, instance.public_ip)
       "Private IP"     = instance.private_ip
       "Instance ID"    = instance.id
@@ -40,7 +40,7 @@ output "openvpn" {
 output "ad_dns" {
   value = {
     for idx, instance in aws_instance.ad_dns :
-    instance.tags["Name"] => {
+    idx => {
       "Public IP"   = try(aws_eip.ad_dns_eip[idx].public_ip, instance.public_ip)
       "Private IP"  = instance.private_ip
       "Instance ID" = instance.id
