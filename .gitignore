@@ -7,6 +7,8 @@
 *.tfstate.*
 output.txt
 *.pem
+inventory.ini
+ovpn.ini
 
 
 # Crash log files
