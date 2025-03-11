@@ -48,10 +48,6 @@
       debug:
         var: dns_resolution.stdout_lines
 
-
-  hosts: windows
-  gather_facts: no
-  tasks:
     - name: Create IT Department OU
       win_shell: |
         if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'IT Department'")) {
