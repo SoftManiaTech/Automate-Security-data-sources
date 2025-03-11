@@ -34,42 +34,16 @@ resource "aws_security_group" "Terraform-Fortigate-Firewall-sg" {
   name        = "Terraform-fortigate-firewall-sg"
   description = "Security group for FortiGate Firewall"
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
+  dynamic "ingress" {
+    for_each = [ 22, 80, 443, 541, 3000, 8080]
+    content {
+    from_port   = ingress.value
+    to_port     = ingress.value
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 541
-    to_port     = 541
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+}
+
 }
 
 resource "aws_instance" "f5_bigip" {
@@ -119,34 +93,15 @@ resource "aws_security_group" "Terraform-f5_bigip-sg" {
   name        = "Terraform-f5-bigip-sg"
   description = "Security group for F5 BIG-IP"
 
- ingress {
-    from_port   = 22
-    to_port     = 22
+  dynamic "ingress" {
+  for_each = [22, 80, 443, 541, 8443]
+  content {
+    from_port   = ingress.value
+    to_port     = ingress.value
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 8443
-    to_port     = 8443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
+}
   egress {
     from_port   = 0
     to_port     = 0
@@ -204,30 +159,15 @@ resource "aws_security_group" "Terraform-openvpn-sg" {
   name        = "Terraform-openvpn-sg"
   description = "Security group for OpenVPN"
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
+  dynamic "ingress" {
+  for_each = [22, 443, 943, 945]
+  content {
+    from_port   = ingress.value
+    to_port     = ingress.value
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 943
-    to_port     = 943
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 945
-    to_port     = 945
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+}
   ingress {
     from_port   = 1194
     to_port     = 1194
@@ -283,67 +223,22 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   name        = "Terraform-ad-dns-sg"
   description = "Security group for AD & DNS"
 
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  # Allow WinRM HTTP (port 5985) - Not Secure but works for testing
-  ingress {
-    from_port   = 5985
-    to_port     = 5985
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   # Allow WinRM HTTPS (port 5986) - Recommended for security
-  ingress {
-    from_port   = 5986
-    to_port     = 5986
+  # Allow WinRM HTTP (port 5985) - Not Secure but works for testing
+  
+  dynamic "ingress" {
+  for_each = [80, 5985, 5986, 3389, 53, 636, 389, 88, 464]
+  content {
+    from_port   = ingress.value
+    to_port     = ingress.value
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    from_port   = 3389
-    to_port     = 3389
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+}
   ingress {
     from_port   = 53
     to_port     = 53
     protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 636
-    to_port     = 636
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 389
-    to_port     = 389
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 88
-    to_port     = 88
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 464
-    to_port     = 464
-    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress {
