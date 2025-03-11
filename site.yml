@@ -52,87 +52,197 @@
   hosts: windows
   gather_facts: no
   tasks:
-    - name: Create Multiple OUs in Active Directory
+    - name: Create IT Department OU
       win_shell: |
-        $departments = @("IT Department", "HR Department", "Finance Department", "Marketing Department")
-        foreach ($dept in $departments) {
-            if (-not (Get-ADOrganizationalUnit -Filter "Name -eq '$dept'")) {
-                New-ADOrganizationalUnit -Name $dept -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
-                Write-Output "Created OU: $dept"
-            } else {
-                Write-Output "OU already exists: $dept"
-            }
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'IT Department'")) {
+            New-ADOrganizationalUnit -Name "IT Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: IT Department"
+        } else {
+            Write-Output "OU already exists: IT Department"
         }
-      register: ou_creation
+      register: it_ou
 
-    - name: Display OU Creation Results
+    - name: Display IT OU Creation Results
       debug:
-        var: ou_creation.stdout_lines
+        var: it_ou.stdout_lines
 
-    - name: Create Users in Departments (IT, HR, Finance, Marketing)
+    - name: Create HR Department OU
       win_shell: |
-        $users = @(
-          @{Name='John Doe'; GivenName='John'; Surname='Doe'; SamAccountName='jdoe'; UPN='jdoe@SoftMania.test'; OU='IT Department'}
-          @{Name='Alice Smith'; GivenName='Alice'; Surname='Smith'; SamAccountName='asmith'; UPN='asmith@SoftMania.test'; OU='HR Department'}
-          @{Name='Robert Brown'; GivenName='Robert'; Surname='Brown'; SamAccountName='rbrown'; UPN='rbrown@SoftMania.test'; OU='Finance Department'}
-          @{Name='Emily White'; GivenName='Emily'; Surname='White'; SamAccountName='ewhite'; UPN='ewhite@SoftMania.test'; OU='Marketing Department'}
-        )
-        
-        foreach ($user in $users) {
-          if (-not (Get-ADUser -Filter "SamAccountName -eq '$($user.SamAccountName)'")) {
-            New-ADUser -Name $user.Name -GivenName $user.GivenName -Surname $user.Surname `
-              -SamAccountName $user.SamAccountName -UserPrincipalName $user.UPN `
-              -Path "OU=$($user.OU),DC=SoftMania,DC=test" `
-              -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
-            Write-Output "User '$($user.Name)' created in OU '$($user.OU)'"
-          } else {
-            Write-Output "User '$($user.SamAccountName)' already exists. Skipping..."
-          }
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'HR Department'")) {
+            New-ADOrganizationalUnit -Name "HR Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: HR Department"
+        } else {
+            Write-Output "OU already exists: HR Department"
         }
-      register: user_creation
+      register: hr_ou
 
-    - name: Display User Creation Status
+    - name: Display HR OU Creation Results
       debug:
-        var: user_creation.stdout_lines
+        var: hr_ou.stdout_lines
 
-    - name: Create Security Groups for Each Department
+    - name: Create Finance Department OU
       win_shell: |
-        $departments = @("IT Department", "HR Department", "Finance Department", "Marketing Department")
-        
-        foreach ($dept in $departments) {
-          $groupName = "$dept Admins"
-          if (-not (Get-ADGroup -Filter "Name -eq '$groupName'")) {
-            New-ADGroup -Name $groupName -GroupScope Global -GroupCategory Security `
-              -Path "OU=$dept,DC=SoftMania,DC=test"
-            Write-Output "Created Security Group '$groupName'"
-          } else {
-            Write-Output "Security Group '$groupName' already exists"
-          }
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'Finance Department'")) {
+            New-ADOrganizationalUnit -Name "Finance Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: Finance Department"
+        } else {
+            Write-Output "OU already exists: Finance Department"
         }
-      register: security_groups
+      register: finance_ou
 
-    - name: Display Security Group Creation Status
+    - name: Display Finance OU Creation Results
       debug:
-        var: security_groups.stdout_lines
+        var: finance_ou.stdout_lines
 
-    - name: Add Users to Their Respective Security Groups
+    - name: Create Marketing Department OU
       win_shell: |
-        $userGroups = @{
-          'jdoe' = 'IT Department Admins'
-          'asmith' = 'HR Department Admins'
-          'rbrown' = 'Finance Department Admins'
-          'ewhite' = 'Marketing Department Admins'
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'Marketing Department'")) {
+            New-ADOrganizationalUnit -Name "Marketing Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: Marketing Department"
+        } else {
+            Write-Output "OU already exists: Marketing Department"
         }
-        
-        foreach ($user in $userGroups.Keys) {
-          Add-ADGroupMember -Identity $userGroups[$user] -Members $user
-          Write-Output "User '$user' added to '$($userGroups[$user])' group"
-        }
-      register: add_users_to_groups
+      register: marketing_ou
 
-    - name: Display Group Membership Status
+    - name: Display Marketing OU Creation Results
       debug:
-        var: add_users_to_groups.stdout_lines
+        var: marketing_ou.stdout_lines
+
+
+- name: Create AD Users, Groups, and Add Users Separately
+  hosts: windows
+  gather_facts: no
+  tasks:
+
+    # IT Department
+    - name: Create IT Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'jdoe'")) {
+          New-ADUser -Name 'John Doe' -GivenName 'John' -Surname 'Doe' -SamAccountName 'jdoe' `
+            -UserPrincipalName 'jdoe@SoftMania.test' -Path 'OU=IT Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'jdoe' created successfully"
+        } else {
+          Write-Output "User 'jdoe' already exists. Skipping..."
+        }
+      register: it_user
+
+    - name: Create IT Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'IT Admins'")) {
+          New-ADGroup -Name 'IT Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=IT Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'IT Admins'"
+        } else {
+          Write-Output "Security Group 'IT Admins' already exists"
+        }
+      register: it_group
+
+    - name: Add IT User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'IT Admins' -Members 'jdoe'
+        Write-Output "User 'jdoe' added to 'IT Admins' group"
+      register: it_user_group
+
+    # HR Department
+    - name: Create HR Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'asmith'")) {
+          New-ADUser -Name 'Alice Smith' -GivenName 'Alice' -Surname 'Smith' -SamAccountName 'asmith' `
+            -UserPrincipalName 'asmith@SoftMania.test' -Path 'OU=HR Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'asmith' created successfully"
+        } else {
+          Write-Output "User 'asmith' already exists. Skipping..."
+        }
+      register: hr_user
+
+    - name: Create HR Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'HR Admins'")) {
+          New-ADGroup -Name 'HR Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=HR Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'HR Admins'"
+        } else {
+          Write-Output "Security Group 'HR Admins' already exists"
+        }
+      register: hr_group
+
+    - name: Add HR User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'HR Admins' -Members 'asmith'
+        Write-Output "User 'asmith' added to 'HR Admins' group"
+      register: hr_user_group
+
+    # Finance Department
+    - name: Create Finance Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'rbrown'")) {
+          New-ADUser -Name 'Robert Brown' -GivenName 'Robert' -Surname 'Brown' -SamAccountName 'rbrown' `
+            -UserPrincipalName 'rbrown@SoftMania.test' -Path 'OU=Finance Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'rbrown' created successfully"
+        } else {
+          Write-Output "User 'rbrown' already exists. Skipping..."
+        }
+      register: finance_user
+
+    - name: Create Finance Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'Finance Admins'")) {
+          New-ADGroup -Name 'Finance Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=Finance Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'Finance Admins'"
+        } else {
+          Write-Output "Security Group 'Finance Admins' already exists"
+        }
+      register: finance_group
+
+    - name: Add Finance User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'Finance Admins' -Members 'rbrown'
+        Write-Output "User 'rbrown' added to 'Finance Admins' group"
+      register: finance_user_group
+
+    # Marketing Department
+    - name: Create Marketing Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'ewhite'")) {
+          New-ADUser -Name 'Emily White' -GivenName 'Emily' -Surname 'White' -SamAccountName 'ewhite' `
+            -UserPrincipalName 'ewhite@SoftMania.test' -Path 'OU=Marketing Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'ewhite' created successfully"
+        } else {
+          Write-Output "User 'ewhite' already exists. Skipping..."
+        }
+      register: marketing_user
+
+    - name: Create Marketing Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'Marketing Admins'")) {
+          New-ADGroup -Name 'Marketing Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=Marketing Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'Marketing Admins'"
+        } else {
+          Write-Output "Security Group 'Marketing Admins' already exists"
+        }
+      register: marketing_group
+
+    - name: Add Marketing User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'Marketing Admins' -Members 'ewhite'
+        Write-Output "User 'ewhite' added to 'Marketing Admins' group"
+      register: marketing_user_group
+
+    - name: Verify if DNS Server is Running
+      win_shell: |
+        Get-DnsServerZone
+      register: dns_check
+
+    - name: Display DNS Server Zones
+      debug:
+        var: dns_check.stdout_lines
+
 
     - name: Create A Record (webserver → 172.31.86.18)
       win_shell: |
