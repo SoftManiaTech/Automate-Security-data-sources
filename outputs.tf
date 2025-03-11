@@ -50,3 +50,8 @@ output "ad_dns" {
     }
   }
 }
+
+# Output the decrypted Administrator password
+output "Windows_Administrator_Password" {
+  value = rsadecrypt(aws_instance.ad_dns[0].password_data, file("${var.key_name}.pem"))
+}

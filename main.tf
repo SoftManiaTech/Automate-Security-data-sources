@@ -160,6 +160,8 @@ resource "aws_instance" "ad_dns" {
     volume_size = 50
   }
 
+  get_password_data           = true # Enable password retrieval
+
   associate_public_ip_address = true
 
   # Automatically enable WinRM using PowerShell
@@ -229,53 +231,3 @@ openvpn_host ansible_host=${aws_eip.openvpn_eip[0].public_ip} ansible_user=openv
 EOF
 }
 
-resource "null_resource" "ensure_valid_windows_password_file" {
-  count = var.AD_DNS ? 1 : 0
-
-  provisioner "local-exec" {
-    command = <<EOT
-    if (!(Test-Path "windows-password.ini")) {
-      '{"InstanceId": "i-0b9dd3bda3c815e63", "Timestamp": "' + (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ") + '", "PasswordData": "Default@123"}' | Out-File -Encoding utf8 windows-password.ini
-    }
-    EOT
-    interpreter = ["PowerShell", "-Command"]
-  }
-}
-
-resource "time_sleep" "wait_190_sec" {
-  count      = var.AD_DNS ? 1 : 0
-  depends_on = [null_resource.ensure_valid_windows_password_file]
-
-  create_duration = "190s"
-}
-
-resource "null_resource" "get_windows_password" {
-  count      = var.AD_DNS ? 1 : 0
-  depends_on = [time_sleep.wait_190_sec]
-
-  provisioner "local-exec" {
-    command = <<EOT
-    aws ec2 get-password-data --instance-id ${aws_instance.ad_dns[0].id} --priv-launch-key ${var.key_name}.pem --region ${var.region} > windows-password.ini
-    EOT
-    interpreter = ["PowerShell", "-Command"]
-  }
-}
-
-resource "time_sleep" "wait_10_secondss" {
-  count      = var.AD_DNS ? 1 : 0
-  depends_on = [null_resource.get_windows_password]
-
-  create_duration = "10s"
-}
-
-resource "local_file" "windows_inventory" {
-  count      = var.AD_DNS ? 1 : 0
-  depends_on = [time_sleep.wait_10_secondss]
-
-  filename = "inventory.ini"
-
-  content = <<EOF
-[windows]
-windows_server ansible_host=${aws_eip.ad_dns_eip[0].public_ip} ansible_user=Administrator ansible_password="${try(jsondecode(file("windows-password.ini"))["PasswordData"], "Default@123")}" ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
-EOF
-}
