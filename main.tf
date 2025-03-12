@@ -37,6 +37,13 @@ resource "aws_security_group" "Terraform-Fortigate-Firewall-sg" {
   }
 }
 
+egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
 }
 
 resource "aws_instance" "f5_bigip" {
@@ -143,6 +150,12 @@ resource "aws_security_group" "Terraform-openvpn-sg" {
     from_port   = 1194
     to_port     = 1194
     protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
