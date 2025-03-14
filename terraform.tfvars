@@ -1,3 +1,6 @@
+aws_access_key = "your-access-key"
+aws_secret_key = "your-secret-key"
+
 region             = "<aws-region-name>" #example (us-east-2)
 FORTIGATE_FIREWALL = true
 F5_BIG_IP          = true

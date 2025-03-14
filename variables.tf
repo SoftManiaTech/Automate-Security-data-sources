@@ -18,6 +18,15 @@ variable "ssh_public_key" {
   type        = string
 }
 
+variable "aws_secret_key" {
+  type        = string
+}
+
+variable "aws_access_key" {
+  type        = string
+}
+
+
 variable "ami_map" {
   type = map(object({
     fortigate = string

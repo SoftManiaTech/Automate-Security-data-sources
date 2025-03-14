@@ -1,5 +1,7 @@
 provider "aws" {
-  region = var.region
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
+  region     = var.region
 }
 
 
@@ -12,6 +14,16 @@ resource "aws_instance" "Fortigate-Firewall" {
   tags = { Name = "FortiGate Firewall" }
 
   associate_public_ip_address = true
+
+  user_data = <<-EOF
+  # Wait for the system to be ready
+      sleep 200
+  config system admin
+      edit "admin"
+          set password SoftMania123!
+      next
+  end
+  EOF
 
 }
 
